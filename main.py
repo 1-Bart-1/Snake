@@ -1,47 +1,70 @@
 from sense_hat import SenseHat
 from time import sleep
-from pygame import event
 
 from Components.snake import Snake
 from Components.field import Field
 from Components.apple import Apple
 
-from Logic.logic import get_pixels
+from Logic.logic import get_pixels, overlapping
 
+direction = 'd'
 field_size = 8
+moving = False
 
-field = Field(8)
+field = Field(field_size)
 snake = Snake()
-apple = Apple(8)
+apple = Apple(field_size)
 sense = SenseHat()
 
-def init():
-    field.make_lights()
-    snake.add_segment()
 
-    return field.update_lights(snake.segments[0].x, snake.segments[0].y, snake.graphic)
+def init():
+	sense.set_imu_config(False, True, False)
+	sense.clear(0, 0, 0)
+	
+	field.make_lights()
+	snake.add_segment()
+	
+	return field.update_segment_lights(snake.segments, snake.graphic, apple)
 
 
 def render():
-    print("--------------------------")
-#    field.print_lights()
     sense.set_pixels(get_pixels(field.lights))
 
 
-
 def update():
-    snake.move(direction)
-    return field.update_lights(snake.segments[0].x, snake.segments[0].y, snake.graphic)
+	overlap = overlapping(apple, snake.segments)
+
+	if overlap == "die":
+		return False
+	if overlap == "grow":
+		apple.update()
+		grow = True
+	else:
+		grow = False
+	snake.move(direction, grow)
+
+	return field.update_segment_lights(snake.segments, snake.graphic, apple)
+
+
+def shutdown():
+	sense.show_message("Game over", text_colour=(100, 100, 100))
 
 
 running = init()
 while running:
-	for event in event.get():
-		if event.type == KEYDOWN:
-			print("keydown")
-    render()
-    print(len(snake.segments))
-    running = update()
-	sleep(0.5)
-
-
+	for event in sense.stick.get_events():
+		if event.action == "pressed":
+			moving = True
+			if event.direction == "right":
+				direction = 'd'
+			if event.direction == "left":
+				direction = 'a'
+			if event.direction == "up":
+				direction = 'w'
+			if event.direction == "down":
+				direction = 's'
+	if moving:
+		running = update()
+		render()
+		sleep(0.5)
+shutdown()
